@@ -50,8 +50,8 @@ def part_1(path):
         np.array(XMAS_REV).reshape((4, 1)),
         np.diag(XMAS),
         np.diag(XMAS_REV),
-        np.copy(np.diag(XMAS)[:, ::-1]),
-        np.copy(np.diag(XMAS_REV)[:, ::-1]),
+        np.diag(XMAS)[:, ::-1],
+        np.diag(XMAS_REV)[:, ::-1],
     ]
 
     result = sum([apply_filter(matrix, f) for f in filters])
