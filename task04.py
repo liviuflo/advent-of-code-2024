@@ -12,15 +12,15 @@ XMAS = [1, 2, 4, 8]
 XMAS_REV = list(reversed(XMAS))
 
 
-def line_to_array(line):
+def line_to_list(line: str):
     return list(map(lambda c: char_to_int[c], line.strip()))
 
 
-def read_input(path):
+def read_input(path: str):
     with open(path, "r") as file:
         lines = file.readlines()
 
-    return np.array([line_to_array(l) for l in lines])
+    return np.array([line_to_list(l) for l in lines])
 
 
 def apply_filter(matrix: np.ndarray, filter: np.ndarray):
@@ -40,7 +40,7 @@ def pad_matrix(matrix: np.ndarray, pad_size: int):
 
 
 def part_1(path):
-    matrix = np.array(read_input(path))
+    matrix = read_input(path)
     # matrix = pad_matrix(matrix, 4)
 
     filters = [
