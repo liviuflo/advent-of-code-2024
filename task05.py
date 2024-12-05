@@ -1,3 +1,5 @@
+from functools import cmp_to_key
+
 INPUT_DATA_PATH = "input_data/05.txt"
 
 
@@ -11,6 +13,21 @@ def extract_seq(line):
 
 def get_middle_value(seq):
     return seq[len(seq) // 2]
+
+
+def fix_sequence(seq, deps):
+    def dep_compare(item1, item2):
+        if item1 in deps and item2 in deps[item1]:
+            # item2 should appear before item1
+            return 1
+
+        if item2 in deps and item1 in deps[item2]:
+            # item 1 should appear before item2
+            return -1
+
+        return 0
+
+    return sorted(seq, key=cmp_to_key(dep_compare))
 
 
 def is_valid_seq(seq, deps):
@@ -59,5 +76,22 @@ def part_1(path):
     print(valid_seq_middle_element_sum)
 
 
+def part_2(path):
+    deps, seqs = read_inputs(path)
+
+    fixed_seq_middle_element_sum = 0
+    for seq in seqs:
+        if is_valid_seq(seq, deps):
+            continue
+
+        fixed_seq = fix_sequence(seq, deps)
+        assert is_valid_seq(fixed_seq, deps)
+
+        fixed_seq_middle_element_sum += get_middle_value(fixed_seq)
+
+    print(fixed_seq_middle_element_sum)
+
+
 if __name__ == "__main__":
-    part_1(INPUT_DATA_PATH)
+    # part_1(INPUT_DATA_PATH)
+    part_2(INPUT_DATA_PATH)
