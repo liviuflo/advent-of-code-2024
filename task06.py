@@ -110,8 +110,6 @@ class MapAgent:
             print("Current position is not in grid.")
             return
 
-        # print("Current pos:", self.current_pos)
-
         next_row_col = self.current_pos.get_next_row_col()
         if self.cell_is_occupied(next_row_col):
             # rotate
@@ -245,18 +243,6 @@ class Map:
 
         self.data[row][col] = value
 
-    # def get_neighbors(self, row_col):
-    #     output = []
-    #     deltas = np.array([
-    #         [-1, 0],
-    #         [0, 1],
-    #         [1, 0],
-    #         [0, -1]
-    #     ])
-    #     for d in deltas:
-    #         new_row_col = row_col + d
-    #         if self.row_col_is_in_grid(new_row_col):
-
 
 def create_turning_points(map: np.ndarray):
     tps: Dict[tuple, TurningPoint] = {}
@@ -300,17 +286,6 @@ def create_turning_points(map: np.ndarray):
             exit_tps[new_tp.to_tuple()] = new_tp
             tp.set_next_stop(new_tp)
 
-    # viz_map = np.copy(map)
-    # viz_map = viz_map * 100
-
-    # for tp in tps.values():
-    #     row, col = tp.row_col
-    #     viz_map[row][col] = 50 + 15 * tp.incoming_orientation.value
-
-    # plt.imshow(viz_map)
-    # plt.colorbar()
-    # plt.show()
-
     return tps, exit_tps
 
 
@@ -325,27 +300,6 @@ def obstacle_adds_loop(
 
     new_tps: Dict[tuple, TurningPoint] = {}
     new_exit_tps: Dict[tuple, TurningPoint] = {}
-
-    new_links_next: Dict[tuple, TurningPoint] = {}
-    new_links_prev: Dict[tuple, TurningPoint] = {}
-
-    def add_temp_link(prev: TurningPoint, next: TurningPoint):
-        new_links_next[prev.to_tuple()] = next
-        new_links_prev[next.to_tuple()] = prev
-
-    def get_prev(tp: TurningPoint):
-        new_prev = new_links_prev.get(tp.to_tuple(), None)
-        if new_prev is not None:
-            return new_prev
-
-        return tp.prev_tp
-
-    def get_next(tp: TurningPoint):
-        new_next = new_links_next.get(tp.to_tuple(), None)
-        if new_next is not None:
-            return new_next
-
-        return tp.next_stop
 
     def get_tp(tup: tuple):
         for possible_dict in (tps, exit_tps, new_tps, new_exit_tps):
@@ -367,59 +321,6 @@ def obstacle_adds_loop(
 
             new_tp = TurningPoint(tp_row_col, o)
             new_tps[new_tp.to_tuple()] = new_tp
-
-    # for new_tp in new_tps.values():
-    #     # find next stop
-    #     agent = MapAgent(new_map.data, new_tp.to_position())
-    #     next_turn_pos, is_exit = agent.get_turning_point()
-    #     next_turn_pos_tuple = next_turn_pos.to_tuple()
-
-    #     if not is_exit:
-    #         assert next_turn_pos_tuple in tps
-
-    #         # next stop already exists, just link it
-    #         add_temp_link(new_tp, tps[next_turn_pos_tuple])
-    #     else:
-    #         # next stop is exit
-
-    #         if next_turn_pos_tuple in exit_tps:
-    #             # exit has already been discovered
-    #             add_temp_link(new_tp, exit_tps[next_turn_pos_tuple])
-    #         elif next_turn_pos_tuple in new_exit_tps:
-    #             add_temp_link(new_tp, new_exit_tps[next_turn_pos_tuple])
-    #         else:
-    #             # new exit
-
-    #             new_exit_tp = TurningPoint(
-    #                 next_turn_pos.row_col,
-    #                 next_turn_pos.orientation,
-    #                 exit=is_exit,
-    #             )
-    #             new_exit_tps[new_exit_tp.to_tuple()] = new_exit_tp
-
-    #             add_temp_link(new_tp, new_exit_tp)
-
-    #     # find tps for which current should be next tp:
-    #     # place agent at current obstacle, with incoming orientation
-    #     agent = MapAgent(
-    #         new_map.data,
-    #         Position(obstacle_pos, new_tp.incoming_orientation),
-    #     )
-    #     next_turn_pos, is_exit = agent.get_turning_point()
-
-    #     # extract prev of next
-    #     next_turn_pos_tuple = next_turn_pos.to_tuple()
-    #     next_tp = get_tp(next_turn_pos_tuple)
-
-    #     if next_tp is not None:
-    #         prev_of_next = get_prev(next_tp)
-
-    #         if prev_of_next is not None:
-
-    #             current_dist = np.linalg.norm(next_tp.row_col - prev_of_next.row_col)
-    #             new_dist = np.linalg.norm(next_tp.row_col - new_tp.row_col)
-    #             if current_dist > new_dist:
-    #                 add_temp_link(prev_of_next, new_tp)
 
     def edge_crosses_obstacle(current_tp: TurningPoint, next_tp: TurningPoint):
         def get_min_max(a, b):
@@ -443,12 +344,11 @@ def obstacle_adds_loop(
 
         def find_next_tp(tp: TurningPoint):
             agent = MapAgent(new_map.data, tp.to_position())
-            turn_pos, _ = agent.get_turning_point()
+            turn_pos, is_exit = agent.get_turning_point()
 
-            return turn_pos, get_tp(turn_pos.to_tuple())
+            return turn_pos, is_exit, get_tp(turn_pos.to_tuple())
 
         # create new TP where the edge intersects the obstacle
-
         unit_vector = current_tp.row_col - next_tp.row_col
         unit_vector = unit_vector // int(np.linalg.norm(unit_vector, ord=1))
 
@@ -461,9 +361,10 @@ def obstacle_adds_loop(
         tps_to_set_next = [intersection_tp]
 
         while tps_to_set_next:
-            # try for the latest in the list
-            turn_pos, next_tp = find_next_tp(tps_to_set_next[-1])
+            # try for the last in the list
+            turn_pos, is_exit, next_tp = find_next_tp(tps_to_set_next[-1])
             if next_tp is not None:
+                next_tp.exit = is_exit
                 tps_to_set_next[-1].next_stop = next_tp
                 tps_to_set_next = tps_to_set_next[:-1]
             else:
@@ -477,48 +378,37 @@ def obstacle_adds_loop(
 
         return intersection_tp
 
-    turn_pos_blind, is_exit = MapAgent(map, start_pos).get_turning_point()
+    first_turn_pos, is_exit = MapAgent(map, start_pos).get_turning_point()
     current_tp = TurningPoint(
         row_col=start_pos.row_col,
         incoming_orientation=start_pos.orientation.get_rotated(-1),
-        next_stop=get_tp(turn_pos_blind.to_tuple()),
+        next_stop=get_tp(first_turn_pos.to_tuple()),
+        exit=is_exit,
     )
-
-    # turn_pos, is_exit = MapAgent(new_map.data, start_pos).get_turning_point()
-    # current_tp = get_tp(turn_pos.to_tuple())
-    # if is_exit:
-    #     return False
 
     visited_tps = [current_tp.to_tuple()]
 
-    print("START TP:", current_tp)
-
     while True:
-        next_tp = get_next(current_tp)
-        # print("----")
-        # print("OBSTACLE:", obstacle_pos)
-
-        # print("current:", current_tp)
-        # print("next:", next_tp)
+        next_tp = current_tp.next_stop
 
         if next_tp is None:
             raise RuntimeError
 
         if edge_crosses_obstacle(current_tp, next_tp):
             next_tp = fix_edge(current_tp, next_tp)
-            print("fixed next:", next_tp)
 
         if next_tp.to_tuple() in visited_tps:
             return visited_tps, True
-        if next_tp.exit:
-            return visited_tps, False
 
         visited_tps.append(next_tp.to_tuple())
+
+        if next_tp.exit:
+            return visited_tps, False
 
         current_tp = next_tp
 
 
-def part_2(path):
+def part_2(path, visualize=False):
     map, start_pos = read_input(path)
 
     tps, exit_tps = create_turning_points(map)
@@ -529,20 +419,42 @@ def part_2(path):
     steps: list[Position]
 
     locs = list(set(tuple(step.row_col) for step in steps[1:]))
-    # locs = [(113, 28)]
 
-    loops_v2 = 0
+    result = 0
 
     for loc in tqdm(locs):
-        steps_v2, v2_answer = obstacle_adds_loop(
+        nodes, adds_loop = obstacle_adds_loop(
             map, np.array(loc), tps, exit_tps, start_pos
         )
-        if v2_answer:
-            loops_v2 += 1
+        result += int(adds_loop)
 
-    print(loops_v2)
+        if visualize:
+            viz_map = np.copy(map)
+            viz_map = np.stack([viz_map] * 3, axis=-1)
+            viz_map[viz_map == FREE_CELL] = 200
+            viz_map[viz_map == OCCUPIED_CELL] = 100
+
+            for i, coords in enumerate(nodes):
+                row, col = coords[:2]
+                viz_map[row][col] = [0, 50, 50]
+
+                if i + 1 < len(nodes):
+                    r1, c1 = nodes[i + 1][:2]
+                    plt.plot([col, c1], [row, r1], color="magenta")
+
+            row, col = loc
+            viz_map[row][col] = [255, 0, 0]
+
+            row, col = start_pos.row_col
+            viz_map[row][col] = [0, 255, 255]
+
+            plt.imshow(viz_map)
+            plt.tight_layout()
+            plt.show()
+
+    print(result)
 
 
 if __name__ == "__main__":
     # part_1(INPUT_DATA_PATH)
-    part_2(INPUT_DATA_PATH)
+    part_2(INPUT_DATA_PATH, visualize=True)
