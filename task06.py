@@ -194,7 +194,6 @@ class TurningPoint:
     incoming_orientation: Orientation
     next_stop: "TurningPoint" = None
     exit: bool = False
-    prev_tp: "TurningPoint" = None
 
     def __hash__(self):
         return hash(self.to_tuple())
@@ -210,7 +209,6 @@ class TurningPoint:
 
     def set_next_stop(self, next_tp: "TurningPoint"):
         self.next_stop = next_tp
-        next_tp.prev_tp = self
 
     def __repr__(self):
         return f"TP({list(self.row_col)}, in_orientation={self.incoming_orientation})"
@@ -355,7 +353,6 @@ def obstacle_adds_loop(
         intersection_tp = TurningPoint(
             row_col=obstacle_pos + unit_vector,
             incoming_orientation=next_tp.incoming_orientation,
-            prev_tp=current_tp,
         )
 
         tps_to_set_next = [intersection_tp]
@@ -457,4 +454,4 @@ def part_2(path, visualize=False):
 
 if __name__ == "__main__":
     # part_1(INPUT_DATA_PATH)
-    part_2(INPUT_DATA_PATH, visualize=True)
+    part_2(INPUT_DATA_PATH, visualize=False)
