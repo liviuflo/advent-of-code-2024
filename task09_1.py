@@ -69,6 +69,9 @@ class Memory:
 
         print(f"performed {swaps} swaps")
 
+    def reorganise_files(self):
+        pass
+
     def checksum(self):
         return sum([block.checksum() for block in self.blocks if not block.is_free()])
 
