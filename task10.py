@@ -24,46 +24,21 @@ class Map:
     def get_value(self, x, y):
         return self.data[x][y]
 
-    def compute_score_from(self, coords):
+    def get_ends_from(self, coords):
         to_visit = [coords]
-
-        reached_ends = set()
-
+        reached_ends = []
         while to_visit:
             current = to_visit.pop(0)
             current_val = self.get_value(*current)
             if current_val == 9:
-                reached_ends.add(tuple(current))
+                reached_ends.append((tuple(current)))
                 continue
 
             for nb in self.get_valid_neighbors(current):
                 if self.get_value(*nb) == current_val + 1:
                     to_visit.append(nb)
 
-        return len(reached_ends)
-
-    def compute_rating(self):
-        zero_coords = np.argwhere(self.data == 0)
-
-        reached_nines = dict()
-
-        for starting_point in zero_coords:
-            to_visit = [starting_point]
-
-            while to_visit:
-                current = to_visit.pop(0)
-                current_val = self.get_value(*current)
-                if current_val == 9:
-                    key = tuple(current)
-                    reached_nines.setdefault(key, 0)
-                    reached_nines[key] += 1
-                    continue
-
-                for nb in self.get_valid_neighbors(current):
-                    if self.get_value(*nb) == current_val + 1:
-                        to_visit.append(nb)
-
-        return sum(reached_nines.values())
+        return reached_ends
 
 
 def read_map(path):
@@ -72,22 +47,21 @@ def read_map(path):
         return np.array(lines)
 
 
-def part_1(path):
+def parts_12(path):
     map_obj = Map(read_map(path))
 
     zero_coords = np.argwhere(map_obj.data == 0)
 
-    score = sum([map_obj.compute_score_from(coords) for coords in zero_coords])
-    print(score)
+    part1_score = 0
+    part2_rating = 0
+    for start_point in zero_coords:
+        ends = map_obj.get_ends_from(start_point)
+        part1_score += len(set(ends))
+        part2_rating += len(ends)
 
-
-def part_2(path):
-    map_obj = Map(read_map(path))
-
-    rating = map_obj.compute_rating()
-    print(rating)
+    print(part1_score)
+    print(part2_rating)
 
 
 if __name__ == "__main__":
-    # part_1(INPUT_DATA_PATH)
-    part_2(INPUT_DATA_PATH)
+    parts_12(INPUT_DATA_PATH)
