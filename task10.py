@@ -24,7 +24,7 @@ class Map:
     def get_value(self, x, y):
         return self.data[x][y]
 
-    def navigate_from(self, coords):
+    def compute_score_from(self, coords):
         to_visit = [coords]
 
         reached_ends = set()
@@ -42,6 +42,29 @@ class Map:
 
         return len(reached_ends)
 
+    def compute_rating(self):
+        zero_coords = np.argwhere(self.data == 0)
+
+        reached_nines = dict()
+
+        for starting_point in zero_coords:
+            to_visit = [starting_point]
+
+            while to_visit:
+                current = to_visit.pop(0)
+                current_val = self.get_value(*current)
+                if current_val == 9:
+                    key = tuple(current)
+                    reached_nines.setdefault(key, 0)
+                    reached_nines[key] += 1
+                    continue
+
+                for nb in self.get_valid_neighbors(current):
+                    if self.get_value(*nb) == current_val + 1:
+                        to_visit.append(nb)
+
+        return sum(reached_nines.values())
+
 
 def read_map(path):
     with open(path, "r") as file:
@@ -54,9 +77,17 @@ def part_1(path):
 
     zero_coords = np.argwhere(map_obj.data == 0)
 
-    score = sum([map_obj.navigate_from(coords) for coords in zero_coords])
+    score = sum([map_obj.compute_score_from(coords) for coords in zero_coords])
     print(score)
 
 
+def part_2(path):
+    map_obj = Map(read_map(path))
+
+    rating = map_obj.compute_rating()
+    print(rating)
+
+
 if __name__ == "__main__":
-    part_1(INPUT_DATA_PATH)
+    # part_1(INPUT_DATA_PATH)
+    part_2(INPUT_DATA_PATH)
