@@ -1,7 +1,8 @@
 from dataclasses import dataclass
 
 import numpy as np
-from matplotlib import pyplot as plt
+from scipy.signal import correlate2d
+from tqdm import tqdm
 
 INPUT_DATA_PATH = "input_data/12.txt"
 
@@ -19,15 +20,14 @@ class Garden:
         return 0 <= xy[0] < self.data.shape[0] and 0 <= xy[1] < self.data.shape[1]
 
     def get_neighbors(self, xy: np.ndarray):
-        deltas = [[0, 1], [-1, 0], [0, -1], [1, 0]]
-
-        for d in deltas:
+        for d in [[0, 1], [-1, 0], [0, -1], [1, 0]]:
             yield xy + d
 
     def get_value(self, xy: np.ndarray):
         return self.data[xy[0]][xy[1]]
 
     def compute_from(self, xy: np.ndarray):
+        """Floodfill that counts area and perimeter"""
         visit_map = np.zeros_like(self.data, dtype=np.uint16)
 
         patch_type = self.get_value(xy)
@@ -68,21 +68,37 @@ class Garden:
 
                 if self.get_value(n) == patch_type:
                     if visit_map[nx][ny] == TO_VISIT:
-                        # already known
+                        # Already known
                         continue
 
-                    # new point
+                    # New cell
                     points_to_visit.append(n)
                     visit_map[nx][ny] = TO_VISIT
                 else:
-                    # new boundary inside map
+                    # New boundary inside map
                     visit_map[nx][ny] = BOUNDARY
                     perimeter += 1
 
-        # print(area, perimeter)
-        # plt.imshow(visit_map)
-        # plt.show()
-        return area, perimeter, visit_map == VISITED
+        visit_map_bool = visit_map == VISITED
+        return area, perimeter, visit_map_bool
+
+
+def compute_edges(data: np.ndarray):
+    count = 0
+    for edge_filter in [
+        np.array([[-1, 1]]),
+        np.array([[1, -1]]),
+        np.array([[-1, 1]]).T,
+        np.array([[1, -1]]).T,
+    ]:
+        filtered = correlate2d(data, edge_filter)
+        edge_data = np.zeros_like(filtered)
+        edge_data[filtered == 1] = 1
+
+        edge_starts = correlate2d(edge_data, edge_filter.T)
+        count += np.sum(edge_starts == 1)
+
+    return count
 
 
 def read_data(path):
@@ -90,7 +106,7 @@ def read_data(path):
         return np.array([list(line.strip()) for line in file.readlines()])
 
 
-def part_1(path):
+def solve(path, part=2):
     data = read_data(path)
 
     garden = Garden(data)
@@ -99,21 +115,26 @@ def part_1(path):
 
     cost = 0
     patches = 0
-    for x, y in np.argwhere(data):
+    for x, y in tqdm(np.argwhere(data)):
         if full_visit_map[x][y]:
-            # this patch has been visited
+            # This cell has already been visited
             continue
 
         patches += 1
 
         area, perimeter, visited = garden.compute_from(np.array([x, y]))
-        cost += area * perimeter
+
+        if part == 1:
+            cost += area * perimeter
+        if part == 2:
+            edges = compute_edges(visited.astype(np.int32))
+            cost += area * edges
 
         full_visit_map = np.logical_or(full_visit_map, visited)
 
-    print(cost)
     print(f"Visited {patches} patches")
+    print("Total cost:", cost)
 
 
 if __name__ == "__main__":
-    part_1(INPUT_DATA_PATH)
+    solve(INPUT_DATA_PATH, part=2)
