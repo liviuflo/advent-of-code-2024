@@ -79,8 +79,7 @@ class Garden:
                     visit_map[nx][ny] = BOUNDARY
                     perimeter += 1
 
-        visit_map_bool = visit_map == VISITED
-        return area, perimeter, visit_map_bool
+        return area, perimeter, visit_map == VISITED
 
 
 def compute_edges(data: np.ndarray):
