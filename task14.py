@@ -2,8 +2,10 @@ from dataclasses import dataclass
 
 import numpy as np
 from matplotlib import pyplot as plt
+from tqdm import tqdm
 
 INPUT_DATA_PATH = "input_data/14.txt"
+# INPUT_DATA_PATH = "input_data/14_test.txt" # grid_size = (11, 7)
 
 
 @dataclass
@@ -52,16 +54,9 @@ def read_robots(path):
 
 def part_1(path):
     robots = read_robots(path)
-
-    seconds = 100
     grid_size = (101, 103)
-    # grid_size = (11, 7)
 
-    robot_locations = np.zeros(grid_size)
-
-    for robot in robots:
-        new_loc = robot.move_seconds(seconds, grid_size)
-        robot_locations[*new_loc] += 1
+    robot_locations = get_map_at_sec(robots, 100, grid_size)
 
     plt.imshow(robot_locations.T)
     plt.show()
@@ -70,5 +65,45 @@ def part_1(path):
     print(score)
 
 
+def get_map_at_sec(robots, sec, grid_size):
+    robot_map = np.zeros(grid_size)
+    for r in robots:
+        new_loc = r.move_seconds(sec, grid_size)
+        robot_map[*new_loc] += 1
+
+    return robot_map
+
+
+def compute_spread(robot_map: np.ndarray):
+    locations = np.argwhere(robot_map)
+    stdev = np.std(locations, axis=0)
+
+    return np.linalg.norm(stdev)
+
+
+def part_2(path):
+    robots = read_robots(path)
+
+    max_seconds = 10000
+
+    grid_size = (101, 103)
+
+    min_std = 100
+    min_std_map = None
+    min_std_sec = 0
+    for sec in tqdm(range(max_seconds)):
+        robot_locations = get_map_at_sec(robots, sec, grid_size)
+        std = compute_spread(robot_locations)
+        if std < min_std:
+            min_std = std
+            min_std_sec = sec
+            min_std_map = robot_locations.T
+
+    print(min_std_sec)
+    plt.matshow(min_std_map)
+    plt.show()
+
+
 if __name__ == "__main__":
-    part_1(INPUT_DATA_PATH)
+    # part_1(INPUT_DATA_PATH)
+    part_2(INPUT_DATA_PATH)
