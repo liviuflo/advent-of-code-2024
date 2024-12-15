@@ -26,6 +26,8 @@ MAP_VALUES = {
 
 MOVE_DELTAS = {"^": (-1, 0), ">": (0, 1), "v": (1, 0), "<": (0, -1)}
 
+LAST_OBJECT_ID = 100
+
 
 def create_row(line: str):
 
@@ -46,10 +48,17 @@ def create_row(line: str):
 
 @dataclass
 class MapObject:
-    location: np.ndarray
+
+    def __init__(self, location: np.ndarray):
+        self.location = location
+
+        global LAST_OBJECT_ID
+        self.id = LAST_OBJECT_ID
+
+        LAST_OBJECT_ID += 1
 
     def __hash__(self):
-        return hash(tuple(self.location))
+        return self.id
 
     def intersects_cell(self, cell: np.ndarray):
         cell_tup = tuple(cell)
@@ -67,14 +76,30 @@ class MapObject:
 
         return [self.location + np.array(d) for d in deltas]
 
+    def get_cells(self):
+        return [self.location, self.location + np.array([0, 1])]
+
 
 @dataclass
 class MoveMap:
-    data: np.array
+    wall_map: np.array
     robot_rowcol: np.array
-    objects: List[MapObject]
+    objects_map: np.ndarray = None
+    id_to_obj: dict = None
     moved_objects: Set[MapObject] = None
     verbose: bool = False
+
+    def create_objects_map(self, objects: List[MapObject]):
+        obj_map = np.zeros_like(self.wall_map)
+
+        self.id_to_obj = {}
+        for obj in objects:
+            self.id_to_obj[obj.id] = obj
+
+            for row, col in obj.get_cells():
+                obj_map[row][col] = obj.id
+
+        self.objects_map = obj_map
 
     def reset_moved_objects(self):
         self.moved_objects = set()
@@ -86,14 +111,14 @@ class MoveMap:
     def plot(self):
         row, col = self.robot_rowcol
 
-        plt.matshow(self.data, cmap="hot")
-        plt.scatter(col, row, marker="x", color="blue")
+        plt.matshow(self.wall_map, cmap="hot")
+        plt.scatter(col, row, marker="o", color="blue")
 
         xs_left, ys_left, xs_right, ys_right = [], [], [], []
 
         # plot objects
-        for obj_loc in self.objects:
-            row, col = obj_loc.location
+        for obj in self.id_to_obj.values():
+            row, col = obj.location
 
             xs_left.append(col)
             ys_left.append(row)
@@ -106,13 +131,13 @@ class MoveMap:
         plt.show()
 
     def get_value(self, row, col):
-        return self.data[row][col]
+        return self.wall_map[row][col]
 
     def set_value(self, row, col, value):
-        self.data[row][col] = value
+        self.wall_map[row][col] = value
 
     def compute_score(self):
-        object_locations = np.array([obj.location for obj in self.objects])
+        object_locations = np.array([obj.location for obj in self.id_to_obj.values()])
         object_locations[:, 0] *= 100
 
         return np.sum(object_locations)
@@ -121,14 +146,13 @@ class MoveMap:
         if self.get_value(*cell) == WALL_CELL:
             return None
 
-        # Can be improved by grouping objects by row
-        for obj in self.objects:
-            if obj.intersects_cell(cell):
-                return obj
+        row, col = cell
+        obj_map_val = self.objects_map[row][col]
 
-        return None
+        return self.id_to_obj.get(obj_map_val, None)
 
     def move_robot(self, move: str):
+        self.print("Attempting move", move)
         can_move = self.can_move_cell(self.robot_rowcol, move)
 
         if can_move:
@@ -137,6 +161,17 @@ class MoveMap:
 
         if self.verbose:
             self.plot()
+
+    def move_object(self, object: MapObject, move: str):
+        # set current cells as free
+        for row, col in object.get_cells():
+            self.objects_map[row][col] = 0
+
+        object.location += np.array(MOVE_DELTAS[move])
+
+        # update at new location
+        for row, col in object.get_cells():
+            self.objects_map[row][col] = object.id
 
     def move_cell(self, row_col: np.ndarray, move: str):
         """
@@ -160,7 +195,7 @@ class MoveMap:
                 self.move_cell(c, move)
 
             # move current object
-            matched_obj.location += np.array(MOVE_DELTAS[move])
+            self.move_object(matched_obj, move)
 
             self.moved_objects.add(matched_obj)
 
@@ -222,7 +257,8 @@ def read_input(path):
             else:
                 moves.extend(line.strip())
 
-    output_map = MoveMap(np.array(map_rows), robot_rowcol, objects)
+    output_map = MoveMap(np.array(map_rows), robot_rowcol)
+    output_map.create_objects_map(objects)
 
     return output_map, moves
 
