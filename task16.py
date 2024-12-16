@@ -7,7 +7,7 @@ from matplotlib import pyplot as plt
 INPUT_DATA_PATH = "input_data/16.txt"
 
 FREE_CELL = 0
-WALL_CELL = 1
+WALL_CELL = -100
 
 CHAR_TO_MAP_VALUE = {"#": WALL_CELL, ".": FREE_CELL, "E": FREE_CELL, "S": FREE_CELL}
 
@@ -52,7 +52,7 @@ ORIENTATION_TO_DELTA = [
 
 DELTA_ORIENTATION_TO_TURNS = [0, 1, 2, 1]
 
-ORIENTATION_TO_SIGN = [">", "^", "<", "v"]
+ORIENTATION_STR = [">", "^", "<", "v"]
 
 
 @dataclass
@@ -62,7 +62,9 @@ class MapPose:
     score: int
 
     def __repr__(self):
-        return f"{tuple(self.row_col)} {ORIENTATION_TO_SIGN[self.orientation]} #{self.score}"
+        return (
+            f"{tuple(self.row_col)} {ORIENTATION_STR[self.orientation]} #{self.score}"
+        )
 
     def get_neighbors(self):
         for delta_orientation in range(4):
@@ -74,6 +76,9 @@ class MapPose:
             )
             yield MapPose(new_location, new_orientation, self.score + extra_score + 1)
 
+    def as_tuple(self):
+        return (*self.row_col, ORIENTATION_STR[self.orientation], self.score)
+
 
 @dataclass
 class LabyrinthMap:
@@ -83,15 +88,77 @@ class LabyrinthMap:
     def is_wall(self, row: int, col: int):
         return self.data[row][col] == WALL_CELL
 
+    def count_cells_from(self, start_pose: MapPose):
+        DEFAULT_SCORE = np.inf
+
+        sorted_poses = [start_pose]
+        best_score_map = np.full((*self.data.shape, 4), DEFAULT_SCORE)
+
+        ancestor_tree = {}
+
+        def expand(node: MapPose):
+
+            for neighbor in node.get_neighbors():
+                if self.is_wall(*neighbor.row_col):
+                    continue
+
+                row, col = neighbor.row_col
+                ori = neighbor.orientation
+                current_score = best_score_map[row][col][ori]
+
+                nb_as_tuple = neighbor.as_tuple()
+                node_as_tuple = node.as_tuple()
+                current_ancestors = ancestor_tree.get(nb_as_tuple, [])
+
+                if neighbor.score < current_score:
+                    best_score_map[row][col][ori] = neighbor.score
+                    ancestor_tree[nb_as_tuple] = [node_as_tuple]
+
+                elif (
+                    neighbor.score == current_score
+                    and node_as_tuple not in current_ancestors
+                ):
+                    ancestor_tree[nb_as_tuple].append(node_as_tuple)
+                else:
+                    continue
+
+                insort_left(sorted_poses, neighbor, key=lambda x: x.score)
+
+        end_nodes = []
+        while sorted_poses:
+            current = sorted_poses.pop(0)
+            expand(current)
+
+            if tuple(current.row_col) == self.end_cell:
+                end_nodes.append(current.as_tuple())
+
+        viz_map = np.min(best_score_map, axis=2)
+        viz_map[viz_map == DEFAULT_SCORE] = -10
+        plt.matshow(viz_map, cmap="seismic")
+        plt.title("Best cell scores")
+        plt.colorbar()
+        plt.tight_layout()
+        plt.show()
+
+        min_end_score = min([x[3] for x in end_nodes])
+        ancestors = [x for x in end_nodes if x[3] == min_end_score]
+        trail_cells_map = np.zeros_like(self.data)
+        while ancestors:
+            current = ancestors.pop(0)
+            trail_cells_map[*current[:2]] = 1  # mark cell as visited
+
+            if current != start_pose.as_tuple():  # start pose has no ancestor
+                ancestors.extend(ancestor_tree[current])
+
+        return np.sum(trail_cells_map)
+
     def traverse_from(self, pose: MapPose):
         sorted_poses = [pose]
         visited_map = np.zeros_like(self.data)
 
         while sorted_poses:
             current = sorted_poses.pop(0)
-            row, col = current.row_col
-            visited_map[row][col] = 1
-            print("Current:", current)
+            visited_map[*current.row_col] = 1
 
             if tuple(current.row_col) == self.end_cell:
                 return current.score
@@ -100,19 +167,15 @@ class LabyrinthMap:
                 if self.is_wall(*neighbor.row_col):
                     continue
 
-                row, col = neighbor.row_col
-                if visited_map[row][col] != 0:
+                if visited_map[*neighbor.row_col] != 0:
+                    # best score is already set
                     continue
 
                 insort_left(sorted_poses, neighbor, key=lambda x: x.score)
 
 
-def part_1(path):
+def part_1(path: str):
     map_data, start_pos, end_pos = read_input(path)
-
-    # print(start_pos, end_pos)
-    # plt.matshow(map_data)
-    # plt.show()
 
     labyrinth = LabyrinthMap(map_data, end_pos)
     score = labyrinth.traverse_from(
@@ -120,6 +183,19 @@ def part_1(path):
     )
     print(score)
 
+    return
+
+
+def part_2(path: str):
+    map_data, start_pos, end_pos = read_input(path)
+
+    labyrinth = LabyrinthMap(map_data, end_pos)
+    cell_count = labyrinth.count_cells_from(
+        MapPose(np.array(start_pos), orientation=0, score=0)
+    )
+    print(cell_count)
+
 
 if __name__ == "__main__":
-    part_1(INPUT_DATA_PATH)
+    # part_1(INPUT_DATA_PATH)
+    part_2(INPUT_DATA_PATH)
