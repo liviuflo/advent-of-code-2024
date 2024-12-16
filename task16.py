@@ -137,7 +137,6 @@ class LabyrinthMap:
         plt.matshow(viz_map, cmap="seismic")
         plt.title("Best cell scores")
         plt.colorbar()
-        plt.tight_layout()
         plt.show()
 
         min_end_score = min([x[3] for x in end_nodes])
