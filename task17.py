@@ -2,9 +2,6 @@ import math
 from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
-from matplotlib import pyplot as plt
-from tqdm import tqdm
-
 INPUT_DATA_PATH = "input_data/17.txt"
 
 
@@ -29,7 +26,8 @@ class Program:
     reg: Register
     seq: List[int]
 
-    def run2(self, target=None):
+    def run_custom(self, target=None):
+        """Run all the operations from the official input in a single step."""
         outputs = []
         while True:
             a = self.reg.a
@@ -46,19 +44,16 @@ class Program:
                     return None
 
             if new_a == 0:
-                # return ",".join(map(str, outputs))
                 return outputs
 
             self.reg = Register(new_a, new_b, new_c)
 
     def run(self, target=None):
-        # print("RUNNING")
+        """Execute each operation in the program sequence."""
         outputs = []
         pointer = 0
         while pointer < len(self.seq):
-            # print("Step:", *self.seq[pointer : pointer + 2])
             output, pointer = self.run_step(pointer)
-            # print("Reg:", self.reg.get_values())
 
             if output is not None:
                 outputs.append(output)
@@ -68,14 +63,14 @@ class Program:
                     if tuple(outputs) != tuple(target[: len(outputs)]):
                         return None
 
-            # input()
-
         return ",".join(map(str, outputs))
 
     def __combo_operand(self, operand: int):
+        """Retrieve the value of a combo operand given its literal value."""
         return [0, 1, 2, 3, *self.reg.get_values()][operand]
 
     def run_step(self, pointer_val: int) -> Tuple[Optional[int], int]:
+        """Run a single step at the given pointer value."""
         next_pointer_val = pointer_val + 2
         step = ProgramStep(*self.seq[pointer_val:next_pointer_val])
         if step.opcode == 0:
@@ -148,70 +143,15 @@ def read_input(path):
 
 def part_1(path):
     register_values, program_sequence = read_input(path)
-    # program_steps = extract_steps(program_sequence)
-    # print(program_steps)
+
     register = Register(*register_values)
 
     program = Program(register, program_sequence)
-    print(program.run2())
+    print(program.run_custom())
 
 
 def part_2(path):
-
-    register_values, program_sequence = read_input(path)
-
-    target = list(program_sequence)
-    wanted_output = ",".join(map(str, target))
-
-    all_outputs = []
-
-    def run_with_a(value: int):
-        register_values = [value, 0, 0]
-        register = Register(*register_values)
-        program = Program(register, program_sequence)
-        output = program.run2()
-        all_outputs.append(output)
-        return
-
-        output = program.run2(target)
-
-        if output is None:
-            return
-
-        print("A:", value)
-        print("output:", output)
-        input()
-
-        if len(output) == len(wanted_output):
-            print("FOUND")
-
-    # start = int(1e10)
-    # end = int(1e11)
-
-    # for having 0 as last value
-    # start = 8**15
-    # end = 8**15 + math.ceil((8**16 - 8**15) / 7)
-
-    # for a in tqdm(range(start, end)):
-    #     run_with_a(a)
-
-    start = 1
-    end = 8**3
-
-    for a in tqdm(range(start, end)):
-        run_with_a(a)
-
-    idx = 1
-    elements = [str(x[-idx]) if len(x) >= idx else -1 for x in all_outputs]
-
-    xs = range(len(elements))
-    plt.plot(xs, elements)
-    plt.scatter(list(map(lambda x: 8**x, range(3))), [0] * 3)
-    plt.show()
-
-
-def part_22(path):
-    register_values, program_sequence = read_input(path)
+    _, program_sequence = read_input(path)
 
     target = list(program_sequence)
     wanted_output = ",".join(map(str, target))
@@ -220,45 +160,7 @@ def part_22(path):
         register_values = [value, 0, 0]
         register = Register(*register_values)
         program = Program(register, program_sequence)
-        return program.run2()
-
-    def find_a_that_outputs_x(x, existing_solution, step):
-        print("EXISTING SOL:", existing_solution)
-        for a in range(8 ** (step + 1)):
-            new_a = (existing_solution << (step * 3)) + a
-            output = run_with_a(new_a)
-            print(f"Trying with: {new_a} ({bin(new_a)[2:]}) => {output}")
-
-            if output == x:
-                yield new_a
-
-    solutions = [0]
-    for level in range(1, len(program_sequence) + 1):
-        # print("So far:", a, bin(a) if a is not None else None)
-        wanted_output = program_sequence[-level:]
-        print("Wanted output:", wanted_output)
-        print("Previous solutions:", solutions)
-
-        new_solutions = []
-
-        for a in solutions:
-            for new_a in find_a_that_outputs_x(wanted_output, a, level - 1):
-                new_solutions.append(new_a)
-
-        solutions = new_solutions
-
-
-def part_23(path):
-    register_values, program_sequence = read_input(path)
-
-    target = list(program_sequence)
-    wanted_output = ",".join(map(str, target))
-
-    def run_with_a(value: int):
-        register_values = [value, 0, 0]
-        register = Register(*register_values)
-        program = Program(register, program_sequence)
-        return program.run2()
+        return program.run_custom()
 
     def split_bits(a: int):
         if a == 0:
@@ -270,57 +172,25 @@ def part_23(path):
 
         return bit_groups[::-1]
 
-    def find_first_a_that_outputs(x):
-        n = len(x)
-        for a in range(8**3):
-            output = run_with_a(a)
-            if output[-n:] == x:
-                return a
+    """ Observation
+    The program behaviour is closely related to the powers of 8.
+    The first 3*N bits of A determine the value of the last N outputs,
+    so we can build the solution incrementally.
 
-    # for output in target:
-    #     find_a_that_outputs(output)
-    #     break
+    Traversing the output in reversed order, we find the 3 bits
+    that would output K correct values (the end of the wanted output).
+    All the solutions at the previous step represent a base for 
+    potential guesses for the next (actually prior) value in the output.
+    """
 
-    # all A values whose output ends with 0 begin with bits 001
-    # all A values whose output ends with 3, 0 begin with bits 001, 000
-    # all A values whose output ends with 3, 3, 0 begin with bits 001, 000, 110 or 001, 000, 011
-
-    # def check_last_n_outputs(n):
-    #     first_n_3_bits = set()
-    #     checked = 0
-    #     for a in tqdm(range(0, 8**7)):
-    #         output = run_with_a(a)
-    #         if output[-n:] != target[-n:]:
-    #             continue
-
-    #         checked += 1
-    #         first_n_3_bits.add(tuple(split_bits(a)[:n]))
-
-    #     print(checked)
-    #     print(first_n_3_bits)
-
-    # for n in range(1, 7):
-    #     print("N:", n, target[-n:])
-    #     check_last_n_outputs(n)
-
-    # potential combinations for the first 6*3 bits:
-    # options_6 = {
-    #     ("001", "000", "110", "101", "110", "000"),
-    #     ("001", "000", "011", "101", "101", "111"),
-    #     ("001", "000", "011", "101", "101", "001"),
-    #     ("001", "000", "110", "101", "110", "111"),
-    # }
-
-    # solutions_so_far = list(options_6)
-    solutions_so_far = [[]]
+    previous_solutions = [[]]
     for current_loc in range(len(target)):
         wanted_output = target[-current_loc - 1 :]
 
         next_solutions = set()
-        for solution in solutions_so_far:
+        for solution in previous_solutions:
             for option in range(8):
                 option_bits = split_bits(option)
-                # print("New option", option_bits)
 
                 potential_solution = list(solution) + option_bits
 
@@ -328,41 +198,20 @@ def part_23(path):
                 a_bits = "".join(potential_solution)
                 a = int(a_bits, 2)
 
-                # print(a_bits, a)
-
+                # generate output
                 output = run_with_a(a)
-                # print(output)
-                # print(wanted_output)
 
                 if output == wanted_output:
                     next_solutions.add(tuple(potential_solution))
 
-        # print(next_solutions)
-        solutions_so_far = list(next_solutions)
+        previous_solutions = list(next_solutions)
 
-    for sol in solutions_so_far:
-        a_bits = "".join(sol)
-        a = int(a_bits, 2)
-        output = run_with_a(a)
-        print(a, output)
+    # convert solutions to int
+    solutions = map(lambda sol: int("".join(sol), 2), previous_solutions)
 
-    return
-
-    solutions_so_far = []
-    for n in range(1, len(target) + 1):
-        last_n_digits = target[-n:]
-        print(f"Last {n} digits: {last_n_digits}")
-
-        # If we find an A value whose output ends with last_n_digits, we need to use the first N*3 bits of A.
-        first_a = find_first_a_that_outputs(last_n_digits)
-        print(f"First A that outputs {last_n_digits}: {split_bits(first_a)}")
-        break
-
-    # first 3 bits = last digit
-    # last 3 bits = first digit
+    print(min(solutions))
 
 
 if __name__ == "__main__":
     # part_1(INPUT_DATA_PATH)
-    # part_22(INPUT_DATA_PATH)
-    part_23(INPUT_DATA_PATH)
+    part_2(INPUT_DATA_PATH)
