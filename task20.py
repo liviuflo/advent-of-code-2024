@@ -4,8 +4,8 @@ from dataclasses import dataclass
 import numpy as np
 from matplotlib import pyplot as plt
 
-# INPUT_DATA_PATH = "input_data/20.txt"
-INPUT_DATA_PATH = "input_data/20_test.txt"
+INPUT_DATA_PATH = "input_data/20.txt"
+# INPUT_DATA_PATH = "input_data/20_test.txt"
 
 FREE_CHAR = "."
 FREE_CELL = 0
@@ -57,14 +57,17 @@ class TrackMap:
 
     def traverse(self):
         step_map = np.copy(self.data)
+        UNVISITED = -1
+        step_map[step_map == FREE_CELL] = UNVISITED
         open_cells = [self.end_row_col]
+        step_map[*self.end_row_col] = 0
 
         while open_cells:
             current = open_cells.pop(0)
             current_step = step_map[*current]
 
             for neighbor in self.get_neighbors(*current):
-                if step_map[*neighbor] != FREE_CELL:
+                if step_map[*neighbor] != UNVISITED:
                     # Already visited
                     continue
 
@@ -98,13 +101,19 @@ class TrackMap:
                     if self.get_value(*path_nb) == WALL_CELL:
                         continue
 
-                    saving = current_value - step_map[*path_nb]
+                    saving = current_value - step_map[*path_nb] - 2
                     if saving <= 0:
                         continue
 
                     # print(f"Reached {path_nb}, val {step_map[*path_nb]}")
 
                     cheats.add(TrackCheat(cell, path_nb, saving))
+
+        # for cheat in cheats:
+        #     print(cheat)
+
+        # plt.matshow(step_map)
+        # plt.show()
 
         cheat_savings = Counter([cheat.saving for cheat in cheats])
         print(cheat_savings)
