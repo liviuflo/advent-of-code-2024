@@ -101,9 +101,9 @@ class TrackMap:
             )
             selector = savings > 0
             selected_coords = good_coords[selector]
-            selected_savings = savings[selector].reshape((-1, 1))
+            selected_savings = savings[selector]
 
-            for coords, saving in zip(selected_coords, selected_savings.flatten()):
+            for coords, saving in zip(selected_coords, selected_savings):
                 cheats.add(TrackCheat(cell, coords, saving))
 
         savings_counter = Counter([cheat.saving for cheat in cheats])
