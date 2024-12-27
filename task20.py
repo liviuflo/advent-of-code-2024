@@ -3,6 +3,7 @@ from dataclasses import dataclass
 
 import numpy as np
 from matplotlib import pyplot as plt
+from tqdm import tqdm
 
 INPUT_DATA_PATH = "input_data/20.txt"
 # INPUT_DATA_PATH = "input_data/20_test.txt"
@@ -68,7 +69,6 @@ class TrackMap:
 
             for neighbor in self.get_neighbors(*current):
                 if step_map[*neighbor] != UNVISITED:
-                    # Already visited
                     continue
 
                 if self.get_value(*neighbor) != FREE_CELL:
@@ -77,50 +77,39 @@ class TrackMap:
                 # set step value
                 step_map[*neighbor] = current_step + 1
 
-                # add to open cells
                 open_cells.append(neighbor)
 
         return step_map
 
-    def compute_cheats(self, step_map: np.ndarray):
+    def compute_cheats_general(self, step_map: np.ndarray, max_cheat: int):
         track_cells = np.argwhere(step_map != WALL_CELL)
 
         cheats = set()
+        for cell in tqdm(track_cells):
+            # find track cells that are within `max_cheat` distance and
+            # have a smaller value than the regular path
 
-        for cell in track_cells:
-            current_value = step_map[*cell]
-            # print(f"Cheating from cell {cell}, val {current_value}")
+            distances_from_cell = np.linalg.norm(track_cells - cell, ord=1, axis=1)
+            good_coords = track_cells[distances_from_cell <= max_cheat]
 
-            # move to a wall neighbor
-            for wall_nb in self.get_neighbors(*cell):
-                if self.get_value(*wall_nb) != WALL_CELL:
-                    continue
+            xs = good_coords[:, 0]
+            ys = good_coords[:, 1]
+            savings = (
+                step_map[*cell]
+                - step_map[xs, ys]
+                - np.linalg.norm(cell - good_coords, axis=1, ord=1)
+            )
+            selector = savings > 0
+            selected_coords = good_coords[selector]
+            selected_savings = savings[selector].reshape((-1, 1))
 
-                # move to a non-wall cell with a smaller value
-                for path_nb in self.get_neighbors(*wall_nb):
-                    if self.get_value(*path_nb) == WALL_CELL:
-                        continue
+            for coords, saving in zip(selected_coords, selected_savings.flatten()):
+                cheats.add(TrackCheat(cell, coords, saving))
 
-                    saving = current_value - step_map[*path_nb] - 2
-                    if saving <= 0:
-                        continue
-
-                    # print(f"Reached {path_nb}, val {step_map[*path_nb]}")
-
-                    cheats.add(TrackCheat(cell, path_nb, saving))
-
-        # for cheat in cheats:
-        #     print(cheat)
-
-        # plt.matshow(step_map)
-        # plt.show()
-
-        cheat_savings = Counter([cheat.saving for cheat in cheats])
-        print(cheat_savings)
-        result = sum(
-            [count for saving, count in cheat_savings.items() if saving >= 100]
+        savings_counter = Counter([cheat.saving for cheat in cheats])
+        return sum(
+            [count for saving, count in savings_counter.items() if saving >= 100]
         )
-        return result
 
 
 def create_row(line: str):
@@ -151,17 +140,14 @@ def read_input(path):
     return TrackMap(np.array(rows), np.array(start_pos), np.array(end_pos))
 
 
-def part_1(path):
+def part_12(path):
     track_map = read_input(path)
 
     steps = track_map.traverse()
 
-    val = track_map.compute_cheats(steps)
+    val = track_map.compute_cheats_general(steps, max_cheat=20)
     print(val)
-
-    # 877054 too high
-    # 1341 too high
 
 
 if __name__ == "__main__":
-    part_1(INPUT_DATA_PATH)
+    part_12(INPUT_DATA_PATH)
