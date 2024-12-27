@@ -81,7 +81,7 @@ class TrackMap:
 
         return step_map
 
-    def compute_cheats_general(self, step_map: np.ndarray, max_cheat: int):
+    def count_cheats(self, step_map: np.ndarray, max_cheat: int):
         track_cells = np.argwhere(step_map != WALL_CELL)
 
         cheats = set()
@@ -143,9 +143,9 @@ def read_input(path):
 def part_12(path):
     track_map = read_input(path)
 
-    steps = track_map.traverse()
+    step_map = track_map.traverse()
 
-    val = track_map.compute_cheats_general(steps, max_cheat=20)
+    val = track_map.count_cheats(step_map, max_cheat=20)
     print(val)
 
 
