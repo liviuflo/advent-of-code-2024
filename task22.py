@@ -5,10 +5,12 @@ import numpy as np
 from matplotlib import pyplot as plt
 from tqdm import tqdm
 
-# INPUT_DATA_PATH = "input_data/22_test.txt"
+INPUT_DATA_PATH = "input_data/22_test.txt"
 INPUT_DATA_PATH = "input_data/22.txt"
 
 MOD_VAL = 2**24
+
+SECRET_NUMBERS_STORAGE = dict()
 
 
 @dataclass
@@ -59,10 +61,18 @@ class SecretNumber:
         return sn
 
     def get_sequence(self, steps: int):
+        global SECRET_NUMBERS_STORAGE
+
         sn = self.start_value
         yield sn
 
         for _ in range(steps):
+            # if sn in SECRET_NUMBERS_STORAGE:
+            #     sn = SECRET_NUMBERS_STORAGE[sn]
+            # else:
+            #     res = self.__op123(sn)
+            #     SECRET_NUMBERS_STORAGE[sn] = res
+            #     sn = res
             sn = self.__op123(sn)
             yield sn
 
@@ -82,40 +92,21 @@ def part_2(path):
     start_values = read_input(path)
 
     STEPS = 2000
-    # seqs = []
-    # difs_seqs = []
 
-    seq_dicts: List[Dict] = []
+    seq_prices = dict()
     for v in tqdm(start_values, desc="Computing sequences..."):
         seq = np.array(list(SecretNumber(v).get_sequence(STEPS)))
         prices = seq % 10
         difs = prices[1:] - prices[:-1]
 
-        # print(prices)
-        # print(difs)
+        seen_seq = set()
+        for idx in range(4, len(prices)):
+            seq_ = tuple(difs[idx - 4 : idx])
+            if seq_ not in seen_seq:
+                seen_seq.add(seq_)
+                seq_prices[seq_] = seq_prices.get(seq_, 0) + prices[idx]
 
-        # seqs.append(prices)
-        # difs_seqs.append(difs)
-
-        seq_to_price = dict()
-        for price_idx in range(len(prices) - 1, 3, -1):
-            seq_ = difs[price_idx - 4 : price_idx]
-            seq_to_price[tuple(seq_)] = prices[price_idx]
-            # print(prices[price_idx], seq_)
-
-        seq_dicts.append(seq_to_price)
-
-    all_seqs = set()
-    for d in seq_dicts:
-        all_seqs.update(d.keys())
-
-    best_result = 0
-    for seq in tqdm(all_seqs, desc="Finding best sequence"):
-        result = sum([d.get(seq, 0) for d in seq_dicts])
-        if result > best_result:
-            best_result = result
-
-    print(best_result)
+    print(max(seq_prices.values()))
 
 
 if __name__ == "__main__":
