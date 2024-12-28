@@ -153,10 +153,6 @@ def path_cost(level: int, path: str):
 
 def cost(level: int, start_char: str, target_char: str):
     paths = get_paths(level, start_char, target_char)
-
-    if level == MAX_LEVEL:
-        return min(map(len, paths))
-
     return min([path_cost(level + 1, path + "A") for path in paths])
 
 
