@@ -1,8 +1,6 @@
 from dataclasses import dataclass
-from typing import Dict, List
 
 import numpy as np
-from matplotlib import pyplot as plt
 from tqdm import tqdm
 
 INPUT_DATA_PATH = "input_data/22_test.txt"
