@@ -25,9 +25,9 @@ def generate_next(sn: int):
 class SecretNumber:
     start_value: int
 
-    def get_value(self, step: int):
+    def get_value(self, steps: int):
         sn = self.start_value
-        for _ in range(step):
+        for _ in range(steps):
             sn = generate_next(sn)
 
         return sn
