@@ -13,67 +13,31 @@ MOD_VAL = 2**24
 SECRET_NUMBERS_STORAGE = dict()
 
 
+def generate_next(sn: int):
+    v = ((sn << 6) ^ sn) % MOD_VAL
+    v = ((v >> 5) ^ v) % MOD_VAL
+    v = ((v << 11) ^ v) % MOD_VAL
+
+    return v
+
+
 @dataclass
 class SecretNumber:
     start_value: int
 
-    def __op1(self, secret_num: int):
-        v = secret_num << 6  # multiply by 64
-        v = v ^ secret_num
-        v = v % MOD_VAL
-        return v
-
-    def __op2(self, secret_num: int):
-        v = secret_num >> 5  # divide by 32
-        v = v ^ secret_num
-        v = v % MOD_VAL
-        return v
-
-    def __op3(self, secret_num: int):
-        v = secret_num << 11
-        v = v ^ secret_num
-        v = v % MOD_VAL
-        return v
-
-    def __op123(self, secret_num: int):
-
-        sn = secret_num
-
-        v = sn << 6  # multiply by 64
-        v = (v ^ sn) % MOD_VAL
-
-        sn = v
-        v = sn >> 5  # divide by 32
-        v = (v ^ sn) % MOD_VAL
-
-        sn = v
-        v = sn << 11  # multiply by 2048
-        v = (v ^ sn) % MOD_VAL
-
-        return v
-
     def get_value(self, step: int):
         sn = self.start_value
         for _ in range(step):
-            for op in [self.__op1, self.__op2, self.__op3]:
-                sn = op(sn)
+            sn = generate_next(sn)
 
         return sn
 
     def get_sequence(self, steps: int):
-        global SECRET_NUMBERS_STORAGE
-
         sn = self.start_value
         yield sn
 
         for _ in range(steps):
-            # if sn in SECRET_NUMBERS_STORAGE:
-            #     sn = SECRET_NUMBERS_STORAGE[sn]
-            # else:
-            #     res = self.__op123(sn)
-            #     SECRET_NUMBERS_STORAGE[sn] = res
-            #     sn = res
-            sn = self.__op123(sn)
+            sn = generate_next(sn)
             yield sn
 
 
