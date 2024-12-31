@@ -28,6 +28,7 @@ class Wire:
 
 def read_input(path):
     wire_storage: Dict[str, Wire] = {}
+    live_wires: Set[Wire] = set()
 
     def get_wire(code: str):
         if code in wire_storage:
@@ -47,9 +48,10 @@ def read_input(path):
                 code, value = line.split(":")
                 assert code not in wire_storage
 
-                wire_storage[code] = Wire(
-                    code=code, value=int(value), is_input_for=set()
-                )
+                new_wire = Wire(code=code, value=int(value), is_input_for=set())
+                wire_storage[code] = new_wire
+
+                live_wires.add(new_wire)
 
             elif "->" in line:
                 # create connections
@@ -66,13 +68,15 @@ def read_input(path):
                 input1_wire.add_output(output_wire)
                 input2_wire.add_output(output_wire)
 
-    return wire_storage
+    return wire_storage, live_wires
 
 
 def part_1(path):
-    wire_storage = read_input(path)
+    wire_storage, live_wires = read_input(path)
 
-    print(wire_storage)
+    print(live_wires)
+
+    # propagate from all wires that have a value
 
 
 if __name__ == "__main__":
