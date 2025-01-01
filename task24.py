@@ -1,5 +1,8 @@
 from dataclasses import dataclass
-from typing import Dict, List, Set
+from typing import Callable, Dict, List, Set
+
+import numpy as np
+from matplotlib import pyplot as plt
 
 INPUT_DATA_PATH = "input_data/24_test.txt"
 INPUT_DATA_PATH = "input_data/24.txt"
@@ -14,69 +17,37 @@ GATE_TO_FUNC = {
 @dataclass
 class Wire:
     code: str
-    value: int = None
     gate_type: str = None
-    is_input_for: Set["Wire"] = None
-    inputs: List["Wire"] = None
+    operands: List["Wire"] = None
+    value: int = None
 
-    def add_output(self, output: "Wire"):
-        self.is_input_for.add(output)
+    def call(self):
+        if self.gate_type == "input":
+            return self.value
 
-    def add_input(self, input: "Wire", input_id: int):
-        if self.inputs is None:
-            self.inputs = [None, None]
-
-        self.inputs[input_id] = input
-
-    def ready_to_fire(self):
-        if self.inputs is None:
-            return False
-
-        for input_wire in self.inputs:
-            if input_wire is None:
-                return False
-
-            if input_wire.value == None:
-                return False
-
-        return True
-
-    def try_to_compute_value(self):
-        if not self.ready_to_fire():
-            return False
-
-        if self.gate_type is None:
-            return False
+        if self.value is not None:
+            return self.value
 
         self.value = GATE_TO_FUNC[self.gate_type](
-            *map(lambda wire: wire.value, self.inputs)
+            self.operands[0].call(), self.operands[1].call()
         )
-        return True
+        return self.value
 
-    def __hash__(self):
-        return hash(self.code)
-
-    def __repr__(self):
-        output_str = (
-            ",".join([x.code for x in self.is_input_for]) if self.is_input_for else "{}"
-        )
-        input_str = ",".join([x.code for x in self.inputs]) if self.inputs else "{}"
-        type_str = f"type={self.gate_type}, " if self.gate_type else ""
-        return f"Wire({self.code}, v={self.value}, {type_str}is_input_for={output_str}, inputs={input_str})"
+    def reset(self):
+        self.value = None
 
 
 def read_input(path):
-    wire_storage: Dict[str, Wire] = {}
-    live_wires: Set[Wire] = set()
+    wire_storage: Dict[str, Callable] = {}
 
-    def get_wire(code: str):
-        if code in wire_storage:
-            return wire_storage[code]
+    def get_wire(code):
+        wire = wire_storage.get(code, None)
+        if not wire:
+            # Create new wire
+            wire = Wire(code=code)
+            wire_storage[code] = wire
 
-        new_wire = Wire(code=code, is_input_for=set())
-        wire_storage[code] = new_wire
-
-        return new_wire
+        return wire
 
     with open(path, "r") as file:
         for line in file.readlines():
@@ -87,56 +58,32 @@ def read_input(path):
                 code, value = line.split(":")
                 assert code not in wire_storage
 
-                new_wire = Wire(code=code, value=int(value), is_input_for=set())
-                wire_storage[code] = new_wire
-
-                live_wires.add(new_wire)
+                wire_storage[code] = Wire(
+                    code=code, gate_type="input", value=int(value)
+                )
 
             elif "->" in line:
                 # create connections
                 input1, gate_type, input2, _, output = line.split(" ")
 
-                # print(input1, gate_type, input2, output)
                 input1_wire = get_wire(input1)
                 input2_wire = get_wire(input2)
 
                 output_wire = get_wire(output)
 
                 output_wire.gate_type = gate_type
+                output_wire.operands = [input1_wire, input2_wire]
 
-                for input_id, input_wire in enumerate([input1_wire, input2_wire]):
-                    input_wire.add_output(output_wire)
-                    output_wire.add_input(input_wire, input_id)
-
-    return wire_storage, live_wires
+    return wire_storage
 
 
 def part_1(path):
-    wire_storage, live_wires = read_input(path)
+    wire_storage = read_input(path)
 
-    z_outputs = set()
+    z_wires = [wire for code, wire in wire_storage.items() if code[0] == "z"]
+    z_wires_sorted = sorted(z_wires, key=lambda wire: wire.code, reverse=True)
 
-    while live_wires:
-
-        new_live_wires = set()
-        for wire in live_wires:
-            for output_wire in wire.is_input_for:
-
-                if output_wire in new_live_wires:
-                    continue
-
-                if output_wire.try_to_compute_value():
-                    new_live_wires.add(output_wire)
-
-                    if output_wire.code[0] == "z":
-                        z_outputs.add(output_wire)
-
-        live_wires = new_live_wires
-
-    z_values = map(
-        lambda wire: str(wire.value),
-        sorted(z_outputs, key=lambda wire: wire.code, reverse=True),
-    )
+    z_values = map(lambda wire: str(wire.call()), z_wires_sorted)
     result = int("".join(z_values), base=2)
     print(result)
 
